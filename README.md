@@ -24,11 +24,17 @@
 - 🔍 **Screen the entire market** in seconds — find overbought stocks, unusual volume spikes, new 52-week highs
 - 📊 **Pull clean OHLCV data** for any ticker, any timeframe — ready for analysis, no CSV wrangling
 - 📈 **Compute technical indicators** — RSI, MACD with plain-English interpretation, not just raw numbers
-- 🕯️ **Generate professional candlestick charts** — dark-themed, publication-ready PNGs with volume panels
+- 🕯️ **Generate professional candlestick charts** — dark-themed with stacked EMA overlays (8/21/34/55/89), volume panels, publication-ready PNGs
 - 📰 **Aggregate financial news** from multiple RSS sources in real-time
 - 📄 **Extract full article text** from any URL — your agent reads the actual article, not just the headline
 
 All of this happens through the [Model Context Protocol](https://modelcontextprotocol.io/), so your AI assistant calls these tools natively — no API keys, no REST endpoints, no configuration hell.
+
+### Example Chart Output
+
+`generate_chart("NVDA", period="6mo")` → candlestick + volume + stacked EMAs:
+
+![NVDA 6-month chart with EMA overlays](docs/chart_example.png)
 
 ## Tools
 
@@ -37,14 +43,14 @@ All of this happens through the [Model Context Protocol](https://modelcontextpro
 | `run_stock_screen` | Scan for stocks by preset: most active, new highs/lows, overbought, oversold, high relative volume |
 | `get_historical_data` | Fetch OHLCV candlestick data — any ticker, any period, any interval |
 | `analyze_technicals` | Compute RSI(14) + MACD(12,26,9) and get a plain-English analysis summary |
-| `generate_chart` | Render a candlestick + volume chart → PNG file + base64 string |
+| `generate_chart` | Render a candlestick chart with stacked EMA overlays (8/21/34/55/89) + volume → PNG + base64 |
 | `fetch_ticker_news` | Pull recent headlines from Yahoo Finance & Google News RSS feeds |
 | `extract_article_text` | Extract the full article body from any URL (strips ads, nav, paywalls) |
 
 ## Quickstart
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/momentum-mcp.git
+git clone https://github.com/mphinance/momentum-mcp.git
 cd momentum-mcp
 python3 -m venv .venv
 source .venv/bin/activate

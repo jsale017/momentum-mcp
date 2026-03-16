@@ -1,8 +1,8 @@
 """
 Chart generation module using mplfinance.
 
-Renders candlestick + volume charts as static PNGs and returns both the
-file path and a base64-encoded string for inline display.
+Renders candlestick + volume charts with optional EMA overlays as static
+PNGs and returns both the file path and a base64-encoded string.
 """
 
 from __future__ import annotations
@@ -50,27 +50,40 @@ _STYLE = mpf.make_mpf_style(
     },
 )
 
+# EMA overlay configuration: (period, color, label)
+_EMA_STACK = [
+    (8,  "#00d4ff", "EMA 8"),   # cyan
+    (21, "#22c55e", "EMA 21"),  # green
+    (34, "#eab308", "EMA 34"),  # yellow
+    (55, "#f97316", "EMA 55"),  # orange
+    (89, "#ef4444", "EMA 89"),  # red
+]
+
 
 async def generate_chart(
     ticker: str,
-    period: str = "3mo",
+    period: str = "6mo",
     interval: str = "1d",
     style: str = "dark",
+    show_emas: bool = True,
 ) -> dict[str, str]:
-    """Generate a candlestick chart for a ticker symbol.
+    """Generate a candlestick chart with EMA overlays for a ticker symbol.
 
     Fetches OHLCV data, renders a candlestick chart with volume panel
-    using ``mplfinance``, saves the PNG to the ``./charts/`` directory,
-    and returns both the file path and a base64-encoded representation.
+    and stacked EMA overlays (8/21/34/55/89) using ``mplfinance``, saves
+    the PNG to the ``./charts/`` directory, and returns both the file
+    path and a base64-encoded representation.
 
     Args:
         ticker: Stock ticker symbol (e.g. ``"AAPL"``).
         period: Lookback period (e.g. ``"3mo"``, ``"1y"``).
-            Defaults to ``"3mo"``.
+            Defaults to ``"6mo"``.
         interval: Bar interval (e.g. ``"1d"``, ``"1h"``).
             Defaults to ``"1d"``.
         style: Chart colour theme. Currently only ``"dark"`` is
             supported. Reserved for future expansion.
+        show_emas: Whether to overlay the EMA stack (8/21/34/55/89).
+            Defaults to ``True``.
 
     Returns:
         A dict with:
@@ -79,6 +92,7 @@ async def generate_chart(
         - ``period`` — The period used.
         - ``interval`` — The interval used.
         - ``bars`` — Number of bars rendered.
+        - ``emas`` — List of EMA periods overlaid (e.g. [8, 21, 34, 55, 89]).
         - ``path`` — Absolute path to the saved PNG file.
         - ``base64`` — Base64-encoded PNG string (UTF-8).
 
@@ -116,33 +130,55 @@ async def generate_chart(
 
     df.dropna(subset=["Open", "High", "Low", "Close"], inplace=True)
 
-    # Render in a background thread (matplotlib is not thread-safe by
-    # default, but Agg backend + isolated figure is fine here)
+    # Build EMA overlay lines
+    ema_plots: list[mpf.make_addplot] = []
+    ema_periods_used: list[int] = []
+
+    if show_emas:
+        for ema_len, color, _label in _EMA_STACK:
+            if len(df) >= ema_len:
+                ema_series = df["Close"].ewm(span=ema_len, adjust=False).mean()
+                ema_plots.append(
+                    mpf.make_addplot(
+                        ema_series,
+                        color=color,
+                        width=1.2,
+                        panel=0,
+                    )
+                )
+                ema_periods_used.append(ema_len)
+
+    # Render in a background thread
     def _render() -> tuple[str, str]:
-        # Save to file
         CHARTS_DIR.mkdir(parents=True, exist_ok=True)
         filename = f"{ticker}_{period}_{interval}.png"
         filepath = CHARTS_DIR / filename
 
+        plot_kwargs: dict[str, Any] = {
+            "type": "candle",
+            "style": _STYLE,
+            "volume": True,
+            "title": f"\n{ticker}  ({period} / {interval})",
+            "figsize": (14, 8),
+            "tight_layout": True,
+            "warn_too_much_data": 500,
+        }
+
+        if ema_plots:
+            plot_kwargs["addplot"] = ema_plots
+
+        # Render to file
         mpf.plot(
             df,
-            type="candle",
-            style=_STYLE,
-            volume=True,
-            title=f"\n{ticker}  ({period} / {interval})",
-            figsize=(12, 7),
+            **plot_kwargs,
             savefig=dict(fname=str(filepath), dpi=150, bbox_inches="tight"),
         )
 
-        # Also render to an in-memory buffer for base64
+        # Render to in-memory buffer for base64
         buf = io.BytesIO()
         mpf.plot(
             df,
-            type="candle",
-            style=_STYLE,
-            volume=True,
-            title=f"\n{ticker}  ({period} / {interval})",
-            figsize=(12, 7),
+            **plot_kwargs,
             savefig=dict(fname=buf, dpi=150, bbox_inches="tight"),
         )
         buf.seek(0)
@@ -152,13 +188,14 @@ async def generate_chart(
 
     path, b64_str = await asyncio.to_thread(_render)
 
-    logger.info("Chart saved: %s (%d bars)", path, len(df))
+    logger.info("Chart saved: %s (%d bars, EMAs: %s)", path, len(df), ema_periods_used)
 
     return {
         "ticker": ticker,
         "period": period,
         "interval": interval,
         "bars": len(df),
+        "emas": ema_periods_used,
         "path": path,
         "base64": b64_str,
     }

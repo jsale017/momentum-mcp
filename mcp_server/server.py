@@ -137,26 +137,30 @@ async def analyze_technicals(
 @mcp.tool()
 async def generate_chart(
     ticker: str,
-    period: str = "3mo",
+    period: str = "6mo",
     interval: str = "1d",
     style: str = "dark",
+    show_emas: bool = True,
 ) -> dict[str, str]:
-    """Generate a candlestick chart image for a stock.
+    """Generate a candlestick chart with EMA overlays for a stock.
 
-    Renders a professional candlestick chart with volume panel and saves
-    it as a PNG. Returns both the file path and a base64-encoded string.
+    Renders a professional candlestick chart with volume panel,
+    stacked EMA overlays (8/21/34/55/89), and saves it as a PNG.
+    Returns both the file path and a base64-encoded string.
 
     Args:
         ticker: Stock ticker symbol (e.g. ``"AAPL"``).
-        period: Lookback period (e.g. ``"3mo"``, ``"1y"``).
+        period: Lookback period (e.g. ``"6mo"``, ``"1y"``).
         interval: Candle interval (e.g. ``"1d"``, ``"1h"``).
         style: Chart theme. Currently ``"dark"`` (default).
+        show_emas: Overlay EMA stack (8/21/34/55/89). Default: ``True``.
 
     Returns:
-        Dict with: ticker, period, interval, bars, path, base64.
+        Dict with: ticker, period, interval, bars, emas, path, base64.
     """
     return await _generate_chart(
-        ticker=ticker, period=period, interval=interval, style=style,
+        ticker=ticker, period=period, interval=interval,
+        style=style, show_emas=show_emas,
     )
 
 
