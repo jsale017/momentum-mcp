@@ -194,8 +194,8 @@ async def generate_chart(
         "ticker": ticker,
         "period": period,
         "interval": interval,
-        "bars": len(df),
-        "emas": ema_periods_used,
+        "bars": str(len(df)),
+        "emas": str(ema_periods_used),
         "path": path,
         "base64": b64_str,
     }
